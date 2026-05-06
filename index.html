@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Finger Interaction</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
+</head>
+
+<body>
+    <a href="./1.html">Face Interaction</a>
+    <script>
+        let video;
+        let handPose;
+        let hands = [];
+
+        let asciiChars = " .:-=+*#%@";
+        let cellSize = 10;
+
+        let fogTexture;
+        let fogLayer;   // 白雾层（可被擦除）
+
+        function preload() {
+            handPose = ml5.handPose();
+        }
+
+        function setup() {
+            createCanvas(400, 700);
+            pixelDensity(1);
+
+            video = createCapture({
+                video: { facingMode: "user" },
+                audio: false
+            });
+            video.size(width, height);
+            video.hide();
+
+            createFogTexture();
+
+            // 创建可擦除雾层
+            fogLayer = createGraphics(width, height);
+            fogLayer.noStroke();
+            fogLayer.fill(255, 130);
+            fogLayer.rect(0, 0, width, height);
+
+            handPose.detectStart(video, gotHands);
+        }
+
+        function gotHands(results) {
+            hands = results;
+        }
+
+        function draw() {
+            background(0);
+
+            if (!video.loadedmetadata) return;
+
+            video.loadPixels();
+
+            let blurred = video.get();
+            blurred.filter(BLUR, 6);
+
+            // 1️⃣ 画 ASCII 背景
+            drawASCII(blurred);
+
+            // 2️⃣ 食指擦除
+            eraseWithFinger();
+
+            // 3️⃣ 画白雾层
+            image(fogLayer, 0, 0);
+
+            // 4️⃣ 叠加噪点雾
+            image(fogTexture, 0, 0);
+        }
+
+        // ================= 食指擦除 =================
+        function eraseWithFinger() {
+            if (hands.length > 0) {
+
+                let hand = hands[0];
+
+                // 食指指尖 landmark 8
+                let indexFinger = hand.keypoints[8];
+
+                let x = indexFinger.x;
+                let y = indexFinger.y;
+
+                fogLayer.erase();
+                fogLayer.circle(x, y, 60);  // 擦除范围大小
+                fogLayer.noErase();
+            }
+        }
+
+        // ================= ASCII =================
+        function drawASCII(img) {
+            img.loadPixels();
+            textAlign(CENTER, CENTER);
+
+            for (let y = 0; y < height; y += cellSize) {
+                for (let x = 0; x < width; x += cellSize) {
+
+                    let index = (x + y * width) * 4;
+                    if (index >= img.pixels.length) continue;
+
+                    let r = img.pixels[index];
+                    let g = img.pixels[index + 1];
+                    let b = img.pixels[index + 2];
+
+                    let bright = (r + g + b) / 3;
+                    let charIndex = floor(map(bright, 0, 255, asciiChars.length - 1, 0));
+                    let c = asciiChars.charAt(charIndex);
+
+                    textSize(cellSize);
+                    fill(255);
+                    noStroke();
+                    text(c, x + cellSize / 2, y + cellSize / 2);
+                }
+            }
+        }
+
+        // ================= 雾气纹理 =================
+        function createFogTexture() {
+            fogTexture = createGraphics(width, height);
+            fogTexture.loadPixels();
+
+            for (let i = 0; i < fogTexture.pixels.length; i += 4) {
+                let n = random(200, 255);
+                fogTexture.pixels[i] = n;
+                fogTexture.pixels[i + 1] = n;
+                fogTexture.pixels[i + 2] = n;
+                fogTexture.pixels[i + 3] = random(20, 70);
+            }
+
+            fogTexture.updatePixels();
+        }
+
+
+    </script>
+</body>
+
+</html>
