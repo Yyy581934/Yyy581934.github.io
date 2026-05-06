@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Face Interaction</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
+</head>
+
+<body>
+    <a href="./2.html">Finger Interaction</a>
+    <script>
+        let openkey = "dc6cfa92646f4ab3b721f79ac74ef745.vp37vRTqo8cJtEB3"
+        let textStr = "She has clean eyes and a gentle, calm temperament. Sincere and polite to everyone.has clean eyes and a gentle, calm temperament. Sincere and polite to everyonehas clean eyes and a gentle, calm temperament. Sincere and polite to everyone";
+
+        let particles = [];
+        let fontSize = 16;
+
+        let video, facemesh, predictions = [];
+
+        let mode = "none";
+        let shockRadius = 0;
+        let explosionCenters = [];
+
+        // A：下落圆
+        let dropBall = null;
+
+        let textCenter, influenceRadius;
+        let minX, maxX, minY, maxY;
+
+        // 表情状态
+        let blink = false;
+        let mouthOpen = false;
+        let blow = false;
+
+        let lastCapture = 0;
+        let captureInterval = 60000; // 每3秒更新一次
+
+        async function captureFrame() {
+            let img = video.get();
+
+            let base64 = img.canvas.toDataURL("image/jpeg");
+
+            try {
+                let res = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + openkey 
+                    },
+                    body: JSON.stringify({
+                        model: "glm-4v", // 使用支持视觉识别的模型
+                        messages: [
+                            {
+                                role: "user",
+                                content: [
+                                    {
+                                        type: "image_url",
+                                        image_url: {
+                                            url: base64 // 若base64未包含前缀，需补全如：`data:image/jpeg;base64,${base64}`
+                                        }
+                                    },
+                                    {
+                                        type: "text",
+                                        text: "Please describe this image in English." // 提示模型使用英文描述
+                                    }
+                                ]
+                            }
+                        ]
+                    })
+                });
+                let data = await res.json();
+                // 解析智谱API的标准返回结构
+                if (data.choices && data.choices.length > 0 && data.choices[0].message) {
+                    textStr = data.choices[0].message.content;
+                    layoutText(); // ⭐ 重新排版文字
+                }
+
+            } catch (err) {
+                console.log(err);
+            }
+        }
+
+
+        function setup() {
+            createCanvas(400, 700);
+
+            video = createCapture(VIDEO);
+            video.size(width, height);
+            video.hide();
+
+            captureFrame()
+
+            facemesh = ml5.facemesh(video, () => {
+                console.log("face ready");
+            });
+
+            facemesh.on("predict", results => {
+                predictions = results;
+            });
+
+            textSize(fontSize);
+            layoutText();
+        }
+
+        function layoutText() {
+            particles = [];
+
+            let x = 20;
+            let y = height - 220;
+            let lineHeight = 22;
+            let maxWidth = width - 40;
+
+            minX = width; maxX = 0;
+            minY = height; maxY = 0;
+
+            for (let ch of textStr) {
+                let w = textWidth(ch);
+
+                if (x + w > maxWidth) {
+                    x = 20;
+                    y += lineHeight;
+                }
+
+                particles.push(new Particle(x, y, ch));
+
+                minX = min(minX, x);
+                maxX = max(maxX, x);
+                minY = min(minY, y);
+                maxY = max(maxY, y);
+
+                x += w;
+            }
+
+            textCenter = createVector((minX + maxX) / 2, (minY + maxY) / 2);
+            influenceRadius = (maxX - minX) * 0.25;
+        }
+
+        function draw() {
+            background(20, 120, 160);
+            image(video, 0, 0);
+
+            detectFaceAction();
+
+            // ⭐ 定时获取描述
+            if (millis() - lastCapture > captureInterval) {
+                captureFrame();
+                lastCapture = millis();
+            }
+
+            if (mode === "S") shockRadius += 8;
+
+            // 👁 更新下落圆
+            if (dropBall) {
+                dropBall.update();
+                dropBall.display();
+
+                if (dropBall.done) {
+                    dropBall = null;
+                    mode = "none";
+                }
+            }
+
+            for (let p of particles) {
+                p.update();
+                p.display();
+            }
+        }
+
+        // 👁 表情识别
+        function detectFaceAction() {
+            if (predictions.length === 0) return;
+
+            let keypoints = predictions[0].scaledMesh;
+
+            let leftEyeTop = keypoints[159];
+            let leftEyeBottom = keypoints[145];
+            let eyeDist = dist(leftEyeTop[0], leftEyeTop[1], leftEyeBottom[0], leftEyeBottom[1]);
+
+            if (eyeDist < 5 && !blink) {
+                blink = true;
+                triggerA();
+            }
+            if (eyeDist > 6) blink = false;
+
+            let upperLip = keypoints[13];
+            let lowerLip = keypoints[14];
+            let mouthDist = dist(upperLip[0], upperLip[1], lowerLip[0], lowerLip[1]);
+
+            if (mouthDist > 25 && !mouthOpen) {
+                mouthOpen = true;
+                triggerD();
+            }
+
+            if (mouthDist < 15) mouthOpen = false;
+
+            if (mouthDist > 10 && mouthDist < 20 && !blow) {
+                blow = true;
+                triggerS();
+            }
+
+            if (mouthDist < 8) blow = false;
+        }
+
+        // 🎯 触发
+        function triggerA() {
+            mode = "A";
+            dropBall = new DropBall(width / 2, -50, 60);
+        }
+
+        function triggerS() {
+            mode = "S";
+            shockRadius = 0;
+        }
+
+        function triggerD() {
+            mode = "D";
+
+            explosionCenters = [
+                createVector(minX + (maxX - minX) * 0.3, textCenter.y - 80),
+                createVector(minX + (maxX - minX) * 0.7, textCenter.y + 80)
+            ];
+
+            explode();
+        }
+
+        // 💥 爆炸
+        function explode() {
+            for (let p of particles) {
+
+                let closest, minD = Infinity, index = 0;
+
+                for (let i = 0; i < explosionCenters.length; i++) {
+                    let c = explosionCenters[i];
+                    let d = dist(p.pos.x, p.pos.y, c.x, c.y);
+                    if (d < minD) {
+                        minD = d;
+                        closest = c;
+                        index = i;
+                    }
+                }
+
+                if (minD < influenceRadius * 1.5) {
+
+                    let angle = atan2(p.pos.y - closest.y, p.pos.x - closest.x);
+                    let force = map(minD, 0, influenceRadius, 30, 10);
+
+                    p.vel = createVector(cos(angle), sin(angle)).mult(force);
+
+                    p.explodeColor = (index === 0)
+                        ? color(255, 120, 120)
+                        : color(120, 180, 255);
+
+                    p.state = "explode";
+                    p.life = 255;
+                    p.fade = 255;
+                }
+            }
+        }
+        function keyPressed() {
+            if (key === 'A' || key === 'a') {
+                triggerA();
+            } if (key === 'S' || key === 's') {
+                triggerS();
+            } if (key === 'D' || key === 'd') {
+                triggerD()
+            }
+        }
+        // 🟡 下落圆类
+        class DropBall {
+            constructor(x, y, r) {
+                this.pos = createVector(x, y);
+                this.r = r;
+                this.vy = 8;
+                this.done = false;
+            }
+
+            update() {
+                this.pos.y += this.vy;
+
+                if (this.pos.y > height + 100) {
+                    this.done = true;
+                }
+            }
+
+            display() {
+                noFill();
+                stroke(255, 200);
+                ellipse(this.pos.x, this.pos.y, this.r * 2);
+            }
+        }
+
+        // 粒子
+        class Particle {
+            constructor(x, y, ch) {
+                this.origin = createVector(x, y);
+                this.pos = createVector(x, y);
+                this.vel = createVector(0, 0);
+                this.ch = ch;
+
+                this.state = "idle";
+                this.life = 0;
+                this.fade = 255;
+
+                this.explodeColor = color(255);
+            }
+
+            update() {
+
+                let d0 = dist(this.origin.x, this.origin.y, textCenter.x, textCenter.y);
+                let inCenter = d0 < influenceRadius;
+
+                // 👁 A：被球挤开
+                if (dropBall && this.state === "idle") {
+                    let d = dist(this.pos.x, this.pos.y, dropBall.pos.x, dropBall.pos.y);
+
+                    if (d < dropBall.r + 10) {
+                        let angle = atan2(this.pos.y - dropBall.pos.y, this.pos.x - dropBall.pos.x);
+                        this.vel.add(createVector(cos(angle) * 5, sin(angle) * 5));
+                    }
+                }
+
+                // 💨 S
+                if (mode === "S" && inCenter && this.state === "idle") {
+                    let d = dist(this.pos.x, this.pos.y, textCenter.x, textCenter.y);
+                    let band = influenceRadius * 0.4;
+
+                    if (abs(d - shockRadius) < band) {
+                        let angle = atan2(this.pos.y - textCenter.y, this.pos.x - textCenter.x);
+                        this.vel.add(createVector(cos(angle) * 8, sin(angle) * 8));
+                    }
+                }
+
+                // 💥 D
+                if (this.state === "explode") {
+                    this.pos.add(this.vel);
+                    this.vel.mult(0.96);
+                    this.life -= 5;
+
+                    if (this.life <= 0) this.state = "fade";
+                }
+
+                else if (this.state === "fade") {
+                    this.fade -= 10;
+                    if (this.fade <= 0) {
+                        this.pos = this.origin.copy();
+                        this.state = "return";
+                        this.fade = 0;
+                    }
+                }
+
+                else if (this.state === "return") {
+                    this.fade += 10;
+                    if (this.fade >= 255) {
+                        this.fade = 255;
+                        this.state = "idle";
+                    }
+                }
+
+                else {
+                    // 回归原位
+                    let returnForce = p5.Vector.sub(this.origin, this.pos);
+                    returnForce.mult(0.05);
+
+                    this.vel.add(returnForce);
+                    this.vel.mult(0.9);
+                    this.pos.add(this.vel);
+                }
+            }
+
+            display() {
+                noStroke();
+
+                if (this.state === "explode" || this.state === "fade") {
+                    fill(red(this.explodeColor), green(this.explodeColor), blue(this.explodeColor), this.fade);
+                } else {
+                    fill(255, this.fade);
+                }
+
+                text(this.ch, this.pos.x, this.pos.y);
+            }
+        }
+    </script>
+</body>
+
+</html>
