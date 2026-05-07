@@ -1,0 +1,27 @@
+a{
+    text-decoration: none;
+    display: block;
+    width: 180px;
+    height: 48px;
+    border: 1px solid #000;
+    display: flex;
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+}
+.active{
+    background-color: #000;
+    color: aliceblue;
+}
+main{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.button{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 32px auto;
+}
