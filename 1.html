@@ -10,6 +10,7 @@
 </head>
 
 <body>
+    <p id="tips">Facial Recognition Model Preparing</p>
     <div class="button">
         <a href="./1.html" class="active">Face Interaction</a>
         <a href="./index.html">Finger Interaction</a>  
@@ -101,7 +102,7 @@
             captureFrame()
 
             facemesh = ml5.facemesh(video, () => {
-                console.log("face ready");
+                tips.innerHTML = "Facial Recognition Model Ready"
             });
 
             facemesh.on("predict", results => {
