@@ -101,7 +101,10 @@
         function setup() {
             createCanvas(windowWidth, windowHeight);
 
-            video = createCapture(VIDEO);
+            video = createCapture({
+                video: true,
+                audio: false
+            });
             video.size(width, height);
             video.hide();
 
