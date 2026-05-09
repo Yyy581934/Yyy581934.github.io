@@ -71,7 +71,7 @@
                                     },
                                     {
                                         type: "text",
-                                        text: "Please describe this image in English. Strictly control 700 words."
+                                        text: "Please describe this image in English. Strictly control 1200 words."
                                     }
                                 ]
                             }
@@ -83,7 +83,7 @@
                 if (data.choices && data.choices.length > 0 && data.choices[0].message) {
                     textStr = data.choices[0].message.content;
                     console.log(textStr.length)
-                    if (textStr.length > 800) {
+                    if (textStr.length > 1200) {
                         textStr = textStr.slice(0, 800)
                     }
                     layoutText(); // ⭐ 重新排版文字
