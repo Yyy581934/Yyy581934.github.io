@@ -1,3 +1,15 @@
+*{
+    margin: 0;
+    padding: 0;
+}
+.text{
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    color: #551A8B;
+}
 a{
     text-decoration: none;
     display: block;
@@ -8,6 +20,8 @@ a{
     text-align: center;
     justify-content: center;
     align-items: center;
+    margin-bottom: 10px;
+    background-color: #fff;
 }
 .active{
     background-color: #000;
@@ -20,8 +34,8 @@ main{
 }
 
 .button{
-    display: flex;
-    justify-content: center;
-    align-items: center;
     margin: 32px auto;
+    position: absolute;
+    top: 10px;
+    left: 10px;
 }
