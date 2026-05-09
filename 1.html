@@ -10,10 +10,13 @@
 </head>
 
 <body>
-    <p id="tips">Facial Recognition Model Preparing</p>
+    <div class="text">
+        <p id="tips">Facial Recognition Model Preparing</p>
+        <p>CRY, BLOW OR SMILE</p>
+    </div>
     <div class="button">
         <a href="./1.html" class="active">Face Interaction</a>
-        <a href="./index.html">Finger Interaction</a>  
+        <a href="./index.html">Finger Interaction</a>
     </div>
     <script>
         let openkey = "dc6cfa92646f4ab3b721f79ac74ef745.vp37vRTqo8cJtEB3"
@@ -68,7 +71,7 @@
                                     },
                                     {
                                         type: "text",
-                                        text: "Please describe this image in English. Strictly control 700 words." 
+                                        text: "Please describe this image in English. Strictly control 700 words."
                                     }
                                 ]
                             }
@@ -80,7 +83,7 @@
                 if (data.choices && data.choices.length > 0 && data.choices[0].message) {
                     textStr = data.choices[0].message.content;
                     console.log(textStr.length)
-                    if(textStr.length > 800){
+                    if (textStr.length > 800) {
                         textStr = textStr.slice(0, 800)
                     }
                     layoutText(); // ⭐ 重新排版文字
@@ -91,9 +94,12 @@
             }
         }
 
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+        }
 
         function setup() {
-            createCanvas(400, 700);
+            createCanvas(windowWidth, windowHeight);
 
             video = createCapture(VIDEO);
             video.size(width, height);
