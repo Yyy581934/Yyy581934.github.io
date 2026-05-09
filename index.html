@@ -97,7 +97,7 @@
                 let y = indexFinger.y;
 
                 fogLayer.erase();
-                fogLayer.circle(x, y, 60);  // 擦除范围大小
+                fogLayer.circle(width - x, y, 60);  // 擦除范围大小
                 fogLayer.noErase();
             }
         }
