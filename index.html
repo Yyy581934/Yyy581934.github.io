@@ -1,152 +1,252 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <title>Finger Interaction</title>
-    <link rel="stylesheet" href="./index.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
-    <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
+<meta charset="UTF-8" />
+<title>Finger Interaction</title>
+<link rel="stylesheet" href="./index.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script src="https://unpkg.com/ml5@1/dist/ml5.min.js"></script>
+
+<style>
+    body{
+        margin:0;
+        overflow:hidden;
+        background:black;
+    }
+
+    canvas{
+        display:block;
+    }
+</style>
 </head>
 
 <body>
-    <div class="button">
-        <a href="./1.html" >Face Interaction</a>
-        <a href="./index.html" class="active">Finger Interaction</a>  
-    </div>
-    <script>
-        let video;
-        let handPose;
-        let hands = [];
 
-        let asciiChars = " .:-=+*#%@";
-        let cellSize = 10;
+<script>
 
-        let fogTexture;
-        let fogLayer;   // 白雾层（可被擦除）
+let video;
+let handPose;
+let hands = [];
 
-        function windowResized() {
-            resizeCanvas(windowWidth, windowHeight);
-        }
+let asciiChars = " .:-=+*#%@";
+let cellSize = 10;
 
-        function setup() {
-            createCanvas(windowWidth, windowHeight);
+let fogTexture;
+let fogLayer;
 
-            pixelDensity(1);
+let modelLoaded = false;
 
-            handPose = ml5.handPose();
+// =========================
+function setup() {
 
-            video = createCapture({
-                video: { facingMode: "user"},
-                audio: false
-            });
-            video.size(width, height);
-            video.hide();
+    createCanvas(windowWidth, windowHeight);
 
-            createFogTexture();
+    pixelDensity(1);
 
-            // 创建可擦除雾层
-            fogLayer = createGraphics(width, height);
-            fogLayer.noStroke();
-            fogLayer.fill(255, 130);
-            fogLayer.rect(0, 0, width, height);
+    // 摄像头
+    video = createCapture({
+        video: {
+            facingMode: "user"
+        },
+        audio: false
+    });
 
+    video.size(width, height);
+    video.hide();
+
+    // 创建雾层
+    createFogTexture();
+
+    fogLayer = createGraphics(width, height);
+    fogLayer.noStroke();
+    fogLayer.fill(255, 130);
+    fogLayer.rect(0, 0, width, height);
+
+    // 加载 HandPose
+    handPose = ml5.handPose(
+        video,
+        () => {
+            console.log("HandPose Loaded");
+            modelLoaded = true;
+
+            // 模型加载完再开始检测
             handPose.detectStart(video, gotHands);
         }
+    );
+}
 
-        function gotHands(results) {
-            hands = results;
+// =========================
+function gotHands(results) {
+
+    hands = results;
+}
+
+// =========================
+function draw() {
+
+    background(0);
+
+    if (!modelLoaded) {
+
+        fill(255);
+        textAlign(CENTER, CENTER);
+        textSize(30);
+        text("Loading HandPose...", width/2, height/2);
+
+        return;
+    }
+
+    if (!video.loadedmetadata) return;
+
+    push();
+
+    // 镜像
+    translate(width, 0);
+    scale(-1, 1);
+
+    // 视频
+    video.loadPixels();
+
+    let blurred = video.get();
+    blurred.filter(BLUR, 4);
+
+    // ASCII
+    drawASCII(blurred);
+
+    // 擦除
+    eraseWithFinger();
+
+    // 雾层
+    image(fogLayer, 0, 0);
+
+    // 雾纹理
+    image(fogTexture, 0, 0);
+
+    pop();
+}
+
+// =========================
+// 食指擦除
+// =========================
+function eraseWithFinger() {
+
+    if (hands.length === 0) return;
+
+    let hand = hands[0];
+
+    // 新版 ml5 推荐方式
+    let indexFinger = hand.index_finger_tip;
+
+    // 防止未识别
+    if (!indexFinger) return;
+
+    let x = indexFinger.x;
+    let y = indexFinger.y;
+
+    // 因为镜像了
+    let mirroredX = width - x;
+
+    fogLayer.erase();
+
+    fogLayer.circle(
+        mirroredX,
+        y,
+        100
+    );
+
+    fogLayer.noErase();
+}
+
+// =========================
+// ASCII
+// =========================
+function drawASCII(img) {
+
+    img.loadPixels();
+
+    textAlign(CENTER, CENTER);
+
+    for (let y = 0; y < height; y += cellSize) {
+
+        for (let x = 0; x < width; x += cellSize) {
+
+            let index = (x + y * width) * 4;
+
+            if (index >= img.pixels.length) continue;
+
+            let r = img.pixels[index];
+            let g = img.pixels[index + 1];
+            let b = img.pixels[index + 2];
+
+            let bright = (r + g + b) / 3;
+
+            let charIndex = floor(
+                map(
+                    bright,
+                    0,
+                    255,
+                    asciiChars.length - 1,
+                    0
+                )
+            );
+
+            let c = asciiChars.charAt(charIndex);
+
+            textSize(cellSize);
+
+            fill(255);
+
+            noStroke();
+
+            text(
+                c,
+                x + cellSize / 2,
+                y + cellSize / 2
+            );
         }
+    }
+}
 
-        function draw() {
-            background(0);
+// =========================
+// 雾纹理
+// =========================
+function createFogTexture() {
 
-            if (!video.loadedmetadata) return;
+    fogTexture = createGraphics(width, height);
 
-            translate(width, 0);
-            scale(-1, 1);
+    fogTexture.loadPixels();
 
-            video.loadPixels();
+    for (let i = 0; i < fogTexture.pixels.length; i += 4) {
 
-            let blurred = video.get();
-            blurred.filter(BLUR, 6);
+        let n = random(200, 255);
 
-            // 1️⃣ 画 ASCII 背景
-            drawASCII(blurred);
+        fogTexture.pixels[i] = n;
+        fogTexture.pixels[i + 1] = n;
+        fogTexture.pixels[i + 2] = n;
+        fogTexture.pixels[i + 3] = random(20, 70);
+    }
 
-            // 2️⃣ 食指擦除
-            eraseWithFinger();
+    fogTexture.updatePixels();
+}
 
-            // 3️⃣ 画白雾层
-            image(fogLayer, 0, 0);
+// =========================
+function windowResized() {
 
-            // 4️⃣ 叠加噪点雾
-            image(fogTexture, 0, 0);
-        }
+    resizeCanvas(windowWidth, windowHeight);
 
-        // ================= 食指擦除 =================
-        function eraseWithFinger() {
-            if (hands.length > 0) {
+    video.size(width, height);
 
-                let hand = hands[0];
+    createFogTexture();
 
-                // 食指指尖 landmark 8
-                let indexFinger = hand.keypoints[8];
+    fogLayer = createGraphics(width, height);
+    fogLayer.noStroke();
+    fogLayer.fill(255, 130);
+    fogLayer.rect(0, 0, width, height);
+}
 
-                let x = indexFinger.x;
-                let y = indexFinger.y;
+</script>
 
-                fogLayer.erase();
-                fogLayer.circle(width - x, y, 60);  // 擦除范围大小
-                fogLayer.noErase();
-            }
-        }
-
-        // ================= ASCII =================
-        function drawASCII(img) {
-            img.loadPixels();
-            textAlign(CENTER, CENTER);
-
-            for (let y = 0; y < height; y += cellSize) {
-                for (let x = 0; x < width; x += cellSize) {
-
-                    let index = (x + y * width) * 4;
-                    if (index >= img.pixels.length) continue;
-
-                    let r = img.pixels[index];
-                    let g = img.pixels[index + 1];
-                    let b = img.pixels[index + 2];
-
-                    let bright = (r + g + b) / 3;
-                    let charIndex = floor(map(bright, 0, 255, asciiChars.length - 1, 0));
-                    let c = asciiChars.charAt(charIndex);
-
-                    textSize(cellSize);
-                    fill(255);
-                    noStroke();
-                    text(c, x + cellSize / 2, y + cellSize / 2);
-                }
-            }
-        }
-
-        // ================= 雾气纹理 =================
-        function createFogTexture() {
-            fogTexture = createGraphics(width, height);
-            fogTexture.loadPixels();
-
-            for (let i = 0; i < fogTexture.pixels.length; i += 4) {
-                let n = random(200, 255);
-                fogTexture.pixels[i] = n;
-                fogTexture.pixels[i + 1] = n;
-                fogTexture.pixels[i + 2] = n;
-                fogTexture.pixels[i + 3] = random(20, 70);
-            }
-
-            fogTexture.updatePixels();
-        }
-
-
-    </script>
 </body>
-
 </html>
