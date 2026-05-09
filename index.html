@@ -63,6 +63,9 @@
 
             if (!video.loadedmetadata) return;
 
+            translate(width, 0);
+            scale(-1, 1);
+
             video.loadPixels();
 
             let blurred = video.get();
