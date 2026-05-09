@@ -122,22 +122,22 @@
         function layoutText() {
             particles = [];
 
-            let x = 20;
-            let lineHeight = 22;
+            let x = 30;
+            let lineHeight = 32;
             let maxWidth = width - 40;
-            let paddingBottom = 20; // 最后一行距离底部的留白，可自己改
+            let paddingBottom = 30; // 最后一行距离底部的留白，可自己改
 
             minX = width; maxX = 0;
             minY = height; maxY = 0;
 
-            let tempX = 20;
+            let tempX = 30;
             let totalLines = 1;
 
             for (let ch of textStr) {
                 let w = textWidth(ch);
                 if (tempX + w > maxWidth) {
                     totalLines++;
-                    tempX = 20;
+                    tempX = 30;
                 }
                 tempX += w;
             }
@@ -149,7 +149,7 @@
                 let w = textWidth(ch);
 
                 if (x + w > maxWidth) {
-                    x = 20;
+                    x = 30;
                     y += lineHeight;
                 }
 
