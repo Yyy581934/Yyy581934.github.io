@@ -169,9 +169,15 @@
 
         function draw() {
             background(20, 120, 160);
-            image(video, 0, 0);
+            push();
 
+            // 翻转摄像头
+            translate(width, 0);
+            scale(-1, 1);
+            
+            image(video, 0, 0);
             filter(GRAY);
+            pop();
 
             detectFaceAction();
 
