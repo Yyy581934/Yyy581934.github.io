@@ -25,8 +25,13 @@
         let fogTexture;
         let fogLayer;   // 白雾层（可被擦除）
 
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+        }
+
         function setup() {
-            createCanvas(400, 700);
+            createCanvas(windowWidth, windowHeight);
+
             pixelDensity(1);
 
             handPose = ml5.handPose();
