@@ -101,7 +101,7 @@
         function setup() {
             createCanvas(windowWidth, windowHeight);
 
-            video = createCapture(VIDEO);
+            video = createCapture(VIDEO, {flipped: true});
             video.size(width, height);
             video.hide();
 
