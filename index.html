@@ -37,7 +37,7 @@
             handPose = ml5.handPose();
 
             video = createCapture({
-                video: { facingMode: "user" },
+                video: { facingMode: "user", flipped: true },
                 audio: false
             });
             video.size(width, height);
